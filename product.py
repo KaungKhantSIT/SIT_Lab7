@@ -1,6 +1,7 @@
-#Product class
+#Product classes
 import math
 
+#Parent Product Class
 class Product:
 
     def __init__(self, product_id, name, price, stock):
@@ -64,3 +65,70 @@ class Product:
     @classmethod
     def from_dict(cls, data):
         return cls(data["ID"], data["Name"], data["Price"], data["Stock"])
+
+#Physical Product Class (inherits from Product)
+class PhysicalProduct(Product):
+
+    def __init__(self, product_id, name, price, stock, weight):
+        super().__init__(product_id, name, price, stock)
+        self.__weight = self.__validate_weight(weight)
+
+    @staticmethod
+    def __validate_weight(weight):
+        weight = float(weight)
+        if not math.isfinite(weight):
+            raise ValueError("Weight must be a real number")
+        if weight <= 0:
+            raise ValueError("Weight must be more than 0 kg")
+        return weight
+
+    @property
+    def weight(self):
+        return self.__weight
+
+    def display_info(self):
+        super().display_info()
+        print(f"Weight: {self.__weight} kg")
+
+    def to_dict(self):
+        data = super().to_dict()
+        data["Weight"] = self.__weight
+        return data
+
+    @classmethod
+    def from_dict(cls, data):
+        return cls(data["ID"], data["Name"], data["Price"], data["Stock"], data["Weight"])
+
+
+#Digital Product Class (inherits from Product)
+class DigitalProduct(Product):
+
+    def __init__(self, product_id, name, price, stock, file_size):
+        super().__init__(product_id, name, price, stock)
+        self.__file_size = self.__validate_file_size(file_size)
+
+    @staticmethod
+    def __validate_file_size(file_size):
+        file_size = float(file_size)
+        if not math.isfinite(file_size):
+            raise ValueError("File size must be a real number")
+        if file_size <= 0:
+            raise ValueError("File size must be more than 0 MB")
+        return file_size
+
+    @property
+    def file_size(self):
+        return self.__file_size
+
+    def display_info(self):
+        super().display_info()
+        print(f"File Size: {self.__file_size} MB")
+
+    def to_dict(self):
+        data = super().to_dict()
+        data["File Size"] = self.__file_size
+        return data
+
+    @classmethod
+    def from_dict(cls, data):
+        return cls(data["ID"], data["Name"], data["Price"], data["Stock"], data["File Size"])
