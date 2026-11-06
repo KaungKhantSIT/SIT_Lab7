@@ -107,12 +107,13 @@ class PhysicalProduct(Product, CanBeShipped):
 
     def to_dict(self):
         data = super().to_dict()
+        data["Type"] = "Physical"
         data["Weight"] = self.__weight
         return data
 
     @classmethod
     def from_dict(cls, data):
-        return cls(data["ID"], data["Name"], data["Price"], data["Stock"], data["Weight"])
+        return cls(data["ID"], data["Name"], data["Price"], data["Stock"], data["Type"], data["Weight"])
 
 
 #Digital Product Class (inherits from Product)
@@ -144,9 +145,17 @@ class DigitalProduct(Product):
 
     def to_dict(self):
         data = super().to_dict()
+        data["Type"] = "Digital"
         data["File Size"] = self.__file_size
         return data
 
     @classmethod
     def from_dict(cls, data):
-        return cls(data["ID"], data["Name"], data["Price"], data["Stock"], data["File Size"])
+        return cls(data["ID"], data["Name"], data["Price"], data["Stock"], data["Type"], data["File Size"])
+
+
+#Lookup Table
+PRODUCT_TYPES = {
+    "Physical": PhysicalProduct,
+    "Digital": DigitalProduct
+}

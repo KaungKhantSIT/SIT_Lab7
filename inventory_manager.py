@@ -4,7 +4,7 @@ import json
 import math
 import re
 
-from product import Product
+from product import PRODUCT_TYPES, Product
 from inventory import Inventory
 
 #Convert text to a non-negative int
@@ -23,7 +23,7 @@ def parse_price(raw):
         price = round(float(raw), 2)
     except ValueError:
         raise ValueError("Please enter a valid number.")
-    if not math.isfinite(raw):
+    if not math.isfinite(price):
         raise ValueError("Please enter a real number.")
     if price <= 0:
         raise ValueError("Please enter a price above $0.")
@@ -58,7 +58,8 @@ def load_inventory(filename):
         return inventory
     for item in data:
         try:
-            inventory.add_product(Product.from_dict(item))
+            product_class = PRODUCT_TYPES[item.get("Type")]
+            inventory.add_product(product_class.from_dict(item))
         except (KeyError, ValueError, TypeError) as err:
             print(f"Skipped invalid record {item}: {err}")
     print("Inventory loaded successfully.\n")
