@@ -113,7 +113,7 @@ class PhysicalProduct(Product, CanBeShipped):
 
     @classmethod
     def from_dict(cls, data):
-        return cls(data["ID"], data["Name"], data["Price"], data["Stock"], data["Type"], data["Weight"])
+        return cls(data["ID"], data["Name"], data["Price"], data["Stock"], data["Weight"])
 
 
 #Digital Product Class (inherits from Product)
@@ -151,7 +151,7 @@ class DigitalProduct(Product):
 
     @classmethod
     def from_dict(cls, data):
-        return cls(data["ID"], data["Name"], data["Price"], data["Stock"], data["Type"], data["File Size"])
+        return cls(data["ID"], data["Name"], data["Price"], data["Stock"], data["File Size"])
 
 
 #Lookup Table
