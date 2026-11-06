@@ -1,8 +1,10 @@
 #Product classes
 import math
+from abc import ABC, abstractmethod
+from shipping import CanBeShipped
 
 #Parent Product Class
-class Product:
+class Product(ABC):
 
     def __init__(self, product_id, name, price, stock):
         self.__product_id = str(product_id).strip().upper()
@@ -65,9 +67,16 @@ class Product:
     @classmethod
     def from_dict(cls, data):
         return cls(data["ID"], data["Name"], data["Price"], data["Stock"])
+    
+    @abstractmethod
+    def get_fulfilment_info(self):
+        pass
 
 #Physical Product Class (inherits from Product)
-class PhysicalProduct(Product):
+class PhysicalProduct(Product, CanBeShipped):
+
+    SHIPPING_BASE_FEE = 5.00
+    SHIPPING_RATE_PER_KG = 2.50
 
     def __init__(self, product_id, name, price, stock, weight):
         super().__init__(product_id, name, price, stock)
@@ -89,6 +98,12 @@ class PhysicalProduct(Product):
     def display_info(self):
         super().display_info()
         print(f"Weight: {self.__weight} kg")
+
+    def get_fulfilment_info(self):
+        return f"{self.name} is a physical product and requires physical shipping."
+
+    def calculate_shipping_cost(self):
+        return round(self.SHIPPING_BASE_FEE + self.__weight * self.SHIPPING_RATE_PER_KG, 2)
 
     def to_dict(self):
         data = super().to_dict()
@@ -123,6 +138,9 @@ class DigitalProduct(Product):
     def display_info(self):
         super().display_info()
         print(f"File Size: {self.__file_size} MB")
+
+    def get_fulfilment_info(self):
+        return f"{self.name} is a digital product and is delivered digitally via download."
 
     def to_dict(self):
         data = super().to_dict()
