@@ -4,7 +4,7 @@ import json
 import math
 import re
 
-from product import PRODUCT_TYPES, Product
+from product import PRODUCT_TYPES, PhysicalProduct, DigitalProduct
 from inventory import Inventory
 
 #Convert text to a non-negative int
@@ -17,24 +17,33 @@ def parse_qty(raw):
         raise ValueError("Please enter a non-negative number.")
     return qty
 
-#Convert text to a price above $0, rounded to 2 decimals
-def parse_price(raw):
-    try:
-        price = round(float(raw), 2)
-    except ValueError:
-        raise ValueError("Please enter a valid number.")
-    if not math.isfinite(price):
-        raise ValueError("Please enter a real number.")
-    if price <= 0:
-        raise ValueError("Please enter a price above $0.")
-    return price
-
 #Check product ID format
 def parse_id(raw,format=re.compile(r"P[0-9]{3,}")):
     pid = raw.upper()
     if not format.fullmatch(pid):
         raise ValueError("Please enter a valid product ID (e.g. P001).")
     return pid
+
+#Convert text to a float above 0 (used for price, weight and download size)
+def parse_positive(raw, decimals=None):
+    try:
+        value = float(raw)
+    except ValueError:
+        raise ValueError("Please enter a valid number.")
+    if not math.isfinite(value):
+        raise ValueError("Please enter a real number.")
+    if decimals is not None:
+        value = round(value, decimals)
+    if value <= 0:
+        raise ValueError("Please enter a number above 0.")
+    return value
+
+#Parse product type user input into corresponding class (PhysicalProduct or DigitalProduct)
+def parse_type(raw):
+    product_class = PRODUCT_TYPES.get(raw.capitalize())
+    if product_class is None:
+        raise ValueError(f"Please enter one of: {', '.join(PRODUCT_TYPES).lower()}.")
+    return product_class
 
 #Prompt until input is validated using required parse function
 def prompt_until_valid(prompt, parse):
@@ -58,9 +67,14 @@ def load_inventory(filename):
         return inventory
     for item in data:
         try:
-            product_class = PRODUCT_TYPES[item.get("Type")]
+            product_class = PRODUCT_TYPES.get(item.get("Type"))
+            if product_class is None:
+                raise ValueError(f"Unknown product type: {item.get('Type')}")
+            parse_id(str(item["ID"]).strip())
             inventory.add_product(product_class.from_dict(item))
-        except (KeyError, ValueError, TypeError) as err:
+        except KeyError as err:
+            print(f"Skipped invalid record {item}: missing field {err}")
+        except (ValueError, TypeError) as err:
             print(f"Skipped invalid record {item}: {err}")
     print("Inventory loaded successfully.\n")
     return inventory
@@ -75,69 +89,36 @@ def save_inventory(filename, inventory):
     except OSError as err:
         print(f"Could not save inventory: {err}")
     
-#Add new product to inventory
-def add_product(inventory):
+#Ask the user for a new product's details and return the product object
+def prompt_new_product(inventory):
+
     print("\nAdd New Product")
-    #Prompt for Product ID
-    while True:
-        pid = prompt_until_valid("Product ID: ", parse_id)
-        #Check if ID already exists
-        if inventory.search_product(pid):
-            print("Product ID already exists. Please enter a unique ID.")
-        else:
-            break
-    #Prompt for Product Name
-    while True:
-        name = input("Product Name: ").strip()
-        #Check that name is not empty
-        if not name:
-            print("Name cannot be empty.")
-        #Check if product name already exists
-        elif inventory.find_by_name(name):
-            print("Product name already exists. Please enter a unique name.")
-        else:
-            break
-    #Prompt for Price & Stock
-    price = prompt_until_valid("Price($): ", parse_price)
+
+    #ID must match the format and not already be used
+    pid = prompt_until_valid("Product ID: ", lambda raw: inventory.check_new_id(parse_id(raw)))
+
+    #Name must not be empty or already used (Inventory.check_new_name)
+    name = prompt_until_valid("Product Name: ", inventory.check_new_name)
+
+    #Prompt for price & stock
+    price = prompt_until_valid("Price($): ", lambda raw: parse_positive(raw, decimals=2))
     stock = prompt_until_valid("Stock Quantity: ", parse_qty)
-    #Create and add product to inventory
-    try:
-        inventory.add_product(Product(pid,name,price,stock))
-        print("\nProduct added successfully!")
-    except ValueError as err:
-        print(f"\n{err}")
 
-#Update stock of product
-def update_stock(inventory):
-    pid = prompt_until_valid("Enter Product ID: ", parse_id)
-    product = inventory.search_product(pid)
-    #Check if product exists
-    if product is None:
-        print("\nProduct Not Found")
-        return
-    print(f"Product Found:\nName: {product.name}\nCurrent Stock: {product.stock}\n")
-    #Update Stock
-    while True:
-        qty = prompt_until_valid("New Stock Quantity: ", parse_qty)
-        try:
-            product.update_stock(qty)
-            break
-        except ValueError as err:
-            print(f"\n{err}")
-    print("\nStock updated successfully!")
+    #Choose product type, then ask for the extra attribute that type needs
+    product_class = prompt_until_valid("Type (physical/digital): ", parse_type)
 
-#Search and display product in inventory
-def search_product(inventory):
-    print("Search Product")
+    if product_class is PhysicalProduct:
+        weight = prompt_until_valid("Weight (kg): ", parse_positive)
+        return PhysicalProduct(pid, name, price, stock, weight)
+    
+    file_size = prompt_until_valid("Download Size (MB): ", parse_positive)
+    return DigitalProduct(pid, name, price, stock, file_size)
+
+#Prompt for an existing product ID and return it
+def prompt_existing_id(inventory):
     pid = prompt_until_valid("Enter Product ID: ", parse_id)
-    product = inventory.search_product(pid)
-    if product is None:
-        print("\nProduct Not Found")
-    else:
-        print("\nProduct Found")
-        print("-------------------------------------------")
-        product.display_info()
-        print("-------------------------------------------")
+    inventory.search_product(pid)
+    return pid
 
 #print menu options
 def menu_page(menu):
@@ -163,12 +144,19 @@ def manager():
     inventory = load_inventory(file)
     #User menu options
     menu = {
-        "Display All Products": inventory.display_all,
-        "Add New Product": lambda: add_product(inventory),
-        "Update Stock": lambda: update_stock(inventory),
-        "Search Product": lambda: search_product(inventory),
-        "Save Inventory": lambda: save_inventory(file, inventory),
-        "Exit": None
+        "Display All Products": (inventory.display_all, None),
+        "Add New Product": (
+            lambda: inventory.add_product(prompt_new_product(inventory)), "Product added successfully!"),
+        "Update Stock": (
+            lambda: inventory.update_stock(
+                prompt_existing_id(inventory),
+                prompt_until_valid("New Stock Quantity: ", parse_qty)),
+            "Stock updated successfully!"),
+        "Search Product": (
+            lambda: inventory.display_product(prompt_until_valid("Enter Product ID: ", parse_id)), None),
+        "Save Inventory": (
+            lambda: save_inventory(file, inventory), None),
+        "Exit": (None, None)
     }
     #Menu
     try:
@@ -176,9 +164,15 @@ def manager():
             option = menu_page(menu)
             if option == "Exit":
                 break
-            menu[option]()
+            #Errors raised by Inventory methods (e.g. "Product Not Found") are shown instead of crashing
+            action, success_message = menu[option]
+            try:
+                action()
+                if success_message:
+                    print(f"\n{success_message}")
+            except ValueError as err:
+                print(f"\n{err}")
             input("\nPress Enter to return to the menu...")
-    #Ctrl+C / Ctrl+D (or no interactive input) - exit cleanly instead of crashing
     except (KeyboardInterrupt, EOFError):
         print("\n\nInput interrupted.")
     save_inventory(file, inventory)
