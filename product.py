@@ -18,6 +18,8 @@ class Product(ABC):
 
     @staticmethod
     def __validate_price(price):
+        if isinstance(price, bool):
+            raise ValueError("Price must be a number")
         price = round(float(price), 2)
         if not math.isfinite(price):
             raise ValueError("Price must be a real number")
@@ -65,9 +67,10 @@ class Product(ABC):
         }
 
     @classmethod
+    @abstractmethod
     def from_dict(cls, data):
-        return cls(data["ID"], data["Name"], data["Price"], data["Stock"])
-    
+        pass
+
     @abstractmethod
     def get_fulfilment_info(self):
         pass
@@ -84,6 +87,8 @@ class PhysicalProduct(Product, CanBeShipped):
 
     @staticmethod
     def __validate_weight(weight):
+        if isinstance(weight, bool):
+            raise ValueError("Weight must be a number")
         weight = float(weight)
         if not math.isfinite(weight):
             raise ValueError("Weight must be a real number")
@@ -125,6 +130,8 @@ class DigitalProduct(Product):
 
     @staticmethod
     def __validate_file_size(file_size):
+        if isinstance(file_size, bool):
+            raise ValueError("File size must be a number")
         file_size = float(file_size)
         if not math.isfinite(file_size):
             raise ValueError("File size must be a real number")
